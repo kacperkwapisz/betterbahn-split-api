@@ -16,7 +16,7 @@ app.use(prettyJSON());
 app.use(
   "*",
   cors({
-    origin: "*",
+    origin: process.env.CORS_ORIGINS?.split(",") || ["*"],
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type"],
   }),
@@ -26,9 +26,6 @@ app.use(
 app.get("/", (c) => {
   return c.json({
     message: "BetterBahn Split API",
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0",
   });
 });
 
@@ -37,7 +34,6 @@ app.get("/health", (c) => {
   return c.json({
     status: "ok",
     timestamp: new Date().toISOString(),
-    version: "1.0.0",
   });
 });
 
