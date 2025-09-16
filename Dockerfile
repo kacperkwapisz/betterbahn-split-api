@@ -1,49 +1,51 @@
-# Dockerfile
-FROM node:24-alpine AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-
-# Stufe 1: Abhängigkeiten installieren
-FROM base AS deps
+# Use Bun base image
+FROM oven/bun:1 as builder
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install
+# Copy package files
+COPY package.json tsconfig.json ./
 
-# Stufe 2: Die Anwendung bauen
-FROM base AS builder
+# Install dependencies
+RUN bun install --frozen-lockfile
 
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source code
 COPY . .
-RUN pnpm run build
 
-# Stufe 3: Finale, produktive Stufe
-FROM base AS runner
+# Build the application (if needed)
+# RUN bun run build
+
+# Production stage
+FROM oven/bun:1-slim
 WORKDIR /app
 
-# Set timezone to Europe/Berlin (German timezone)
-ENV TZ=Europe/Berlin
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# add curl to get heathcheck to run
-RUN apk add curl
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 bunjs
 
+# Copy from builder
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
 
-# Kopieren des Standalone-Outputs aus der Builder-Stufe
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Set ownership
+RUN chown -R bunjs:nodejs /app
 
-# Kopiert manuell das Modul, dessen Datendateien vom 'standalone'-Modus nicht erfasst werden.
-COPY --from=builder /app/node_modules/.pnpm/db-hafas-stations@2.0.0 ./node_modules/.pnpm/db-hafas-stations@2.0.0
+# Switch to non-root user
+USER bunjs
 
-# Wechsel zum non-root 'node' Benutzer für erhöhte Sicherheit
-USER node
-
-# Expose port and add healthcheck
+# Expose port
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD curl -f http://localhost:3000 || exit 1
 
-CMD ["node", "server.js"]
+# Set environment variables
+ENV NODE_ENV=production
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Start the application (scheduler runs automatically)
+CMD ["bun", "run", "src/server.ts"]

@@ -18,3 +18,4 @@ dist/
 
 # TypeScript
 /tsconfig.tsbuildinfo
+.cursor/

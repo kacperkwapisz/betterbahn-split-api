@@ -1,0 +1,9 @@
+services:
+  betterbahn:
+    image: ghcr.io/kacperkwapisz/betterbahn:latest
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Berlin # Timezone, dont Remove or else There will be time issues with tickets.
+    ports:
+      - "3000:3000"

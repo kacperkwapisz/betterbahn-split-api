@@ -1,7 +1,0 @@
-{
-	"recommendations": [
-		"oxc.oxc-vscode",
-		"esbenp.prettier-vscode",
-		"bradlc.vscode-tailwindcss"
-	]
-}
