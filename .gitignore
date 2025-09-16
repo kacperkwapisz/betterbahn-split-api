@@ -8,7 +8,9 @@ build/
 dist/
 
 # Enviroment files
-.env
+.env*
+!.env.example
+
 
 # JetBrains editors
 .idea

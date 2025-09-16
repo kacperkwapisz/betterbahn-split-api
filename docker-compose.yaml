@@ -1,9 +1,10 @@
 services:
-  betterbahn:
-    image: ghcr.io/kacperkwapisz/betterbahn:latest
+  betterbahn-split-api:
+    image: ghcr.io/kacperkwapisz/betterbahn-split-api:latest
     pull_policy: always
     restart: unless-stopped
     environment:
       - TZ=Europe/Berlin # Timezone, dont Remove or else There will be time issues with tickets.
+      - REDIS_URL=${REDIS_URL}
     ports:
       - "3000:3000"

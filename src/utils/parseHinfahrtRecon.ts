@@ -16,7 +16,7 @@ export const parseHinfahrtRecon = (hinfahrtRecon: string) => {
    */
 
   const sections = hinfahrtRecon.split("¶");
-  const scIndex = sections.findIndex((s) => s === "SC");
+  const scIndex = sections.indexOf("SC");
 
   if (scIndex === -1) {
     throw new Error("Can't process vbid: Couldn't find 'SC' in hinfahrtRecon");
