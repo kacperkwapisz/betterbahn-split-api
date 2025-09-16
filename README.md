@@ -1,90 +1,150 @@
-# BetterBahn
+# BetterBahn Split API
 
-BetterBahn is a web app for finding the best train journeys in Germany. While split ticketing is supported to help save money, it is rather the exception. The app will be extended with many more features in the future.
+Standalone API for BetterBahn, built with Bun + Hono. This service exposes the API endpoints that were previously part of the Next.js app, keeping responses 1:1 compatible so it can be used as a drop‑in replacement.
 
-## Technology
+Original project: BetterBahn (`next` app) — see `https://github.com/l2xu/betterbahn`.
 
-This project uses the [db-vendo-client](https://github.com/public-transport/db-vendo-client) for accessing Deutsche Bahn ticketing data, which is licensed under the ISC License.
+This repository focuses on the API only.
 
-## Legal Notice
+## Highlights
 
-This is not an official repository or project of Deutsche Bahn AG. It is an independent project and not affiliated with or endorsed by Deutsche Bahn. To use this code or the db-vendo-client permission from the Deutsche Bahn AG is necessary.
+- Bun + Hono, fast and lightweight
+- 1:1 endpoint parity with the original Next.js API
+- Zod validation and strict typing
+- Optional Redis-backed caching and rate limiting (graceful fail-open)
+- Monitoring endpoints and improved error handling
+
+## Tech
+
+- Runtime: [Bun](https://bun.sh)
+- Framework: [Hono](https://hono.dev)
+- DB API client: [db-vendo-client](https://github.com/public-transport/db-vendo-client)
+- Validation: [Zod](https://zod.dev)
+- Optional: [Redis](https://redis.io) via `ioredis` for caching and rate limiting
+
+## Project Layout
+
+```
+src/
+  index.ts                 # Hono app bootstrapping
+  routes/
+    journeys.ts           # GET /api/journeys
+    split-journey.ts      # GET /api/split-journey (streaming)
+    parse-url.ts          # GET /api/parse-url
+    monitoring.ts         # /api/monitoring/* (health, cache stats, rate tests)
+  lib/
+    cache.ts              # Redis cache wrapper (optional)
+    ratelimit.ts          # IP-based rate limiting (optional)
+    error-handler.ts      # Error handling utilities
+    configure-search-options.ts
+    extract-url-params.ts
+  utils/
+    schemas.ts            # Shared Zod schemas & types
+    journeyUtils.ts       # Client-side helpers used by the app
+```
 
 ## Getting Started
- Prerequisites
-- [Node.js](https://nodejs.org/en/)
-- [pnpm](https://pnpm.io/) (see below for installation)
-- [git](https://git-scm.com/)
 
+Prerequisites:
 
-To run the project locally:
+- Bun (runtime)
+- pnpm (dependency management)
 
+Install deps and start dev server:
 
-1. Clone the repository and navigate to the folder with git:
+```
+pnpm install
+bun run dev
+```
 
-   ```
-   git clone https://github.com/l2xu/betterbahn.git
-   cd betterbahn
-   ```
-2. Install dependencies with `pnpm install`
+The server runs on `http://localhost:3000`.
 
-   You can install pnpm via corepack (included with Node.js):
+## Environment
 
-   ```
-   corepack enable
-   corepack prepare pnpm@latest --activate
-   ```
-   or via npm:
+Optional Redis (recommended for production):
 
-      ```
-      npm install -g pnpm@latest-10
-      ```
-   then run `pnpm install` in the project directory.
+```
+export REDIS_URL="redis://localhost:6379"
+```
 
-3. Start the development server with `pnpm run dev` and navigate to `http://localhost:3000` in your browser.
+Without Redis, caching and rate limiting gracefully degrade and the API remains fully functional.
+
+### Redis quick start
+
+Redis is optional. If set, it's used for response caching and IP rate limiting.
+
+```
+# macOS (Homebrew)
+brew install redis && redis-server
+
+# Configure the API to use Redis
+export REDIS_URL="redis://localhost:6379"
+bun run dev
+```
+
+For hosted Redis (e.g. Upstash/Railway):
+
+```
+export REDIS_URL="redis://username:password@host:port"
+bun run dev
+```
+
+## Endpoints
+
+- GET `/api/journeys` — Journey search; same response shape as the original Next.js route
+- GET `/api/split-journey` — Split ticket analysis (streaming)
+- GET `/api/parse-url` — Extract parameters from a DB booking URL/text
+- GET `/api/monitoring/health` — Health and dependency checks
+- GET `/api/monitoring/cache-stats` — Cache and rate limit stats (if Redis enabled)
+
+All responses are designed to match the legacy app for seamless migration.
 
 ## Docker
 
-You can also build and run BetterBahn as a Docker container. A `Dockerfile` is included in the repository.
+Build and run the API with Docker:
 
-## Docker Compose
+```
+docker build -t betterbahn-split-api .
+docker run -p 3000:3000 --env REDIS_URL=$REDIS_URL betterbahn-split-api
+```
 
-You can run the app with docker compose:
+Or via docker compose:
 
-### Default/Development
+```
+docker compose up -d
+```
 
-`docker compose -f docker-compose/docker-compose.yaml --project-directory=./ up -d`
+This uses the published image from the Compose file. To pass Redis config via Compose, add `REDIS_URL` to the service `environment`.
 
-http://localhost:3000
+### Quick cURL samples
 
-## Installation Guides
+```
+# Health
+curl -s http://localhost:3000/api/monitoring/health | jq .
 
-For detailed installation instructions on different platforms:
+# Journeys
+curl -s "http://localhost:3000/api/journeys?from=8011160&to=8500010&departure=2025-12-01T14:32&hasDeutschlandTicket=true" | jq '.success,.journeys[0]'
 
-- [Windows Installation (DE)](docs/Windows-Installation-de.md)
-- [Linux Installation (DE)](docs/Linux-Installation-de.md)
-- [Windows Installation (EN)](docs/Windows-Installation-en.md)
-- [Linux Installation (EN)](docs/Linux-Installation-en.md)
+# Parse URL
+curl -s "http://localhost:3000/api/parse-url?text=$(printf %s "https://bahn.de/..." | jq -sRr @uri)" | jq .
+```
+
+## Notes on Parity
+
+- Endpoint structures, field names, and status codes mirror the original Next.js API.
+
+## Legal Notice
+
+This is not an official repository or project of Deutsche Bahn AG or other railway companies. It is an independent project and not affiliated with or endorsed by Deutsche Bahn. To use this code or the db-vendo-client, permission from Deutsche Bahn AG may be necessary.
 
 ## License
 
 This project is licensed under the AGPL-3.0-only. See the [LICENSE](./LICENSE) file for details.
 
-## Community and Contribution
+## Credits
 
-Join the [Discord community](https://discord.gg/9pFXzs6XRK) to ask questions, share feedback, and connect with other users and contributors.
-
-Want to contribute? Please read the [Code of Conduct](/CODE_OF_CONDUCT.md) and see the [Contributing Guide](/CONTRIBUTE.md) for details on how to get started.
-
-## How it works
-
-BetterBahn searches for train journeys and can use split ticketing to help you find cheaper options—though this is usually the exception, not the rule. For a detailed explanation and demonstration, check out the [YouTube video](https://www.youtube.com/watch?v=SxKtI8f5QTU).
-
-## About the Author
-
-Created by [Lukas Weihrauch](https://lukasweihrauch.de).
-
-If you like what I do, consider supporting me: [ko-fi.com/lukasweihrauch](https://ko-fi.com/lukasweihrauch)
+- Original BetterBahn by [Lukas Weihrauch](https://lukasweihrauch.de) — `https://github.com/l2xu/betterbahn`
+- Uses `db-vendo-client` (ISC) by the public-transport community
 
 ---
 
